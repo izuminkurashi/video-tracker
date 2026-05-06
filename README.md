@@ -1,2 +1,10 @@
-# video-tracker
-動画編集の工程別時間計測ツールです。 / A time tracking tool for video editing workflows.
+# video-tracker / 動画編集 タイムトラッカー
+動画編集の工程別時間計測ツールです。
+
+## 使い方
+1. `video_tracker.html` をブラウザで開く
+2. 動画タイトルを入力して計測開始
+3. 詳しい使い方は `使い方ガイド.txt` を参照してください
+
+## 動作環境
+Chrome / Edge / Safari（インターネット接続不要）
