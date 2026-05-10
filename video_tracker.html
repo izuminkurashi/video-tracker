@@ -298,6 +298,7 @@ body { font-family: var(--sans); background: var(--bg); color: var(--text); min-
     <button class="btn danger" onclick="confirmReset()">↺ リセット</button>
     <button class="btn" onclick="deliverProject()" style="border-color:#9DD4C4;color:var(--green)">✅ 納品完了</button>
     <button class="btn primary" onclick="saveLog()">💾 ログに保存</button>
+    <button class="btn danger" onclick="clearAllProjects()">全削除</button>
   </div>
 
   <!-- Sections -->
@@ -672,6 +673,17 @@ function resetItem(id) {
   renderTimers();
 }
 
+function clearAllProjects() {
+  if (!confirm('タイマーの案件をすべて削除しますか？\nログ保存済みの記録一覧は消えません。\n\nこの操作は元に戻せません。')) return;
+  projects.forEach(p => { if (p.runningId) stopTimer(p); });
+  projects = [newProj()];
+  activePid = projects[0].pid;
+  refreshSelectAndChips();
+  renderTrackerPage();
+  localStorage.removeItem('vidSnap');
+  showToast('タイマーをすべて削除しました');
+}
+
 function confirmReset() {
   if (!confirm('この動画のタイマーをすべてリセットしますか？\nログ保存済みの記録は消えません。')) return;
   const proj = activeP(); if (!proj) return;
@@ -1034,39 +1046,52 @@ function importCSV(input) {
       }
 
       if (!entries.length) { showToast('有効なデータがありませんでした'); input.value=''; return; }
-      if (!confirm(`${entries.length}件のデータを読み込みます。\nログ一覧とタイマーの両方に追加されます。`)) { input.value=''; return; }
+
+      // 選択ダイアログ
+      const choice = confirm(
+        `${entries.length}件のデータを読み込みます。\n\n` +
+        `【OK】ログ一覧のみに追加\n` +
+        `【キャンセル】→ 次の画面でタイマーにも追加するか選べます`
+      );
+
+      const addToTimer = choice ? false : confirm(
+        `タイマーにも追加しますか？\n\n` +
+        `【OK】ログ一覧 ＋ タイマーの両方に追加\n` +
+        `【キャンセル】追加しない（読み込みを中止）`
+      );
+
+      if (!choice && !addToTimer) { input.value=''; return; }
 
       // ログ一覧に追加
       const logs = getLogs();
       entries.forEach(entry => logs.push(entry));
       saveLogs(logs);
 
-      // タイマーにもプロジェクトとして追加
-      entries.forEach(entry => {
-        const p = newProj(entry.title);
-        p.clientName  = entry.clientName  || '';
-        p.fmtType     = entry.fmtType     || '';
-        p.rawDurText  = entry.rawDurText  || '';
-        p.finDurText  = entry.finDurText  || '';
-        p.sessionDate = entry.dateStr ? new Date(entry.dateStr) : new Date();
-        p.logId       = entry.id;
-        // 各小項目の時間を復元
-        SECTION_DEFS.forEach(s => {
-          const sec = entry.sections.find(es => es.id === s.id);
-          if (!sec) return;
-          s.items.forEach(item => {
-            const it = sec.items.find(ei => ei.name === item.name);
-            if (it && p.state[item.id]) p.state[item.id].elapsed = it.time || 0;
+      // タイマーにも追加する場合
+      if (addToTimer) {
+        entries.forEach(entry => {
+          const p = newProj(entry.title);
+          p.clientName  = entry.clientName  || '';
+          p.fmtType     = entry.fmtType     || '';
+          p.rawDurText  = entry.rawDurText  || '';
+          p.finDurText  = entry.finDurText  || '';
+          p.sessionDate = entry.dateStr ? new Date(entry.dateStr) : new Date();
+          p.logId       = entry.id;
+          SECTION_DEFS.forEach(s => {
+            const sec = entry.sections.find(es => es.id === s.id);
+            if (!sec) return;
+            s.items.forEach(item => {
+              const it = sec.items.find(ei => ei.name === item.name);
+              if (it && p.state[item.id]) p.state[item.id].elapsed = it.time || 0;
+            });
           });
+          projects.push(p);
         });
-        projects.push(p);
-      });
-
-      // 最後にインポートしたプロジェクトに切り替え
-      activePid = projects[projects.length - 1].pid;
-      refreshSelectAndChips();
-      renderTrackerPage();
-      autosave();
+        activePid = projects[projects.length - 1].pid;
+        refreshSelectAndChips();
+        renderTrackerPage();
+        autosave();
+      }
 
       renderLog();
       showToast(`${entries.length}件をインポートしました ✓`);
